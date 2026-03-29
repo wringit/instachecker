@@ -43,6 +43,7 @@ dependencies:
   fuzzywuzzy: ^0.2.0
   html: ^0.15.6
   dart_sentiment: ^0.0.2
+  receive_sharing_intent: 1.4.5
 
 dev_dependencies:
   flutter_test:

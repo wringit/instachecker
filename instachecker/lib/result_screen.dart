@@ -8,6 +8,7 @@ class ResultScreen extends StatelessWidget {
   final double score;
   final String status;
   final String reason;
+  final String transcript; // added for metadata flow
   final List<String> sources;
 
   const ResultScreen({
@@ -17,6 +18,7 @@ class ResultScreen extends StatelessWidget {
     required this.score,
     required this.status,
     required this.reason,
+    required this.transcript, // added for metadata flow
     required this.sources,
   });
 
@@ -55,7 +57,7 @@ class ResultScreen extends StatelessWidget {
                       border: Border.all(color: Colors.white24, width: 2),
                     ),
                     child: CircleAvatar(
-                      radius: 55, // made larger
+                      radius: 55, 
                       backgroundImage: NetworkImage(profilePic),
                       backgroundColor: Colors.white10,
                     ),
@@ -71,7 +73,7 @@ class ResultScreen extends StatelessWidget {
                           "@$username", 
                           style: const TextStyle(
                             color: Colors.white, 
-                            fontSize: 16, // smaller username
+                            fontSize: 16, 
                             fontWeight: FontWeight.w500
                           )
                         ),
@@ -79,7 +81,7 @@ class ResultScreen extends StatelessWidget {
                         Text(
                           "${(score * 100).toInt()}% Credibility", 
                           style: const TextStyle(
-                            fontSize: 24, // smaller percentage text
+                            fontSize: 24, 
                             fontWeight: FontWeight.bold, 
                             color: Colors.white
                           )
@@ -89,7 +91,7 @@ class ResultScreen extends StatelessWidget {
                           borderRadius: BorderRadius.circular(10),
                           child: LinearProgressIndicator(
                             value: score,
-                            minHeight: 6, // thinner progress bar
+                            minHeight: 6, 
                             backgroundColor: Colors.white.withValues(alpha: 0.2),
                             valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
                           ),
@@ -99,7 +101,7 @@ class ResultScreen extends StatelessWidget {
                           "Status: $status", 
                           style: TextStyle(
                             color: Colors.white.withValues(alpha: 0.8), 
-                            fontSize: 13 // smaller status text
+                            fontSize: 13 
                           )
                         ),
                       ],
@@ -128,6 +130,29 @@ class ResultScreen extends StatelessWidget {
             ),
             const SizedBox(height: 30),
 
+            // video transcript
+            const Text("VIDEO TRANSCRIPT", style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white10),
+              ),
+              child: Text(
+                transcript,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.7),
+                  fontFamily: 'Courier', 
+                  fontSize: 14,
+                  height: 1.4,
+                ),
+              ),
+            ),
+            const SizedBox(height: 30),
+
             const Text("VERIFIED SOURCES", style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
             
@@ -145,7 +170,6 @@ class ResultScreen extends StatelessWidget {
                 borderRadius: 12,
                 onTap: () => launchUrl(Uri.parse(url)),
                 
-                // fail-safe: if image can't be shown, show a clean link tile
                 errorWidget: InkWell(
                   onTap: () => launchUrl(Uri.parse(url)),
                   child: Container(

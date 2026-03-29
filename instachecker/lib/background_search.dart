@@ -108,8 +108,8 @@ class AutoVerificationService extends ChangeNotifier {
   void _runHeadlessScraper(String url, String claim) {
     HeadlessInAppWebView? headless;
     final watchdog = Timer(const Duration(seconds: 20), () {
-      if (headless != null && (headless?.isRunning() ?? false)) {
-        headless?.dispose();
+      if (headless != null && (headless.isRunning() ?? false)) {
+        headless.dispose();
         _checkIfFinished();
       }
     });
@@ -150,7 +150,7 @@ class AutoVerificationService extends ChangeNotifier {
         }
       },
     );
-    headless?.run();
+    headless.run();
   }
 
   void _checkIfFinished() {
