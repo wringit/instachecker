@@ -43,6 +43,10 @@ dependencies:
   url_launcher: ^6.3.2
   flutter_slidable: ^4.0.3
   any_link_preview: ^3.0.3
+  flutter_inappwebview: ^6.1.5 # Stable 2024/2025 version
+  fuzzywuzzy: ^0.2.0
+  html: ^0.15.6
+  dart_sentiment: ^0.0.2
 
 dev_dependencies:
   flutter_test:
