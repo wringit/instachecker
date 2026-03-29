@@ -13,11 +13,11 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'InstaChecker',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: ResultScreen(),
     );
   }
 }
@@ -42,26 +42,20 @@ class _MyHomePageState extends State<MyHomePage> {
   String dataKey = "text_from_flutter_app";
 
   @override
-  void initState(){
+  void initState() {
     super.initState();
-
-    // initialize widgets with group id
     HomeWidget.setAppGroupId(appGroupId);
   }
 
-  void _incrementCounter() async{
+  void _incrementCounter() async {
     setState(() {
       _counter++;
     });
-
-    // save widget data
     String data = "Count = $_counter";
     await HomeWidget.saveWidgetData(dataKey, data);
-
-    // updata widget data
     await HomeWidget.updateWidget(
       iOSName: iOSWidgetName,
-      androidName: androidWidgetName
+      androidName: androidWidgetName,
     );
   }
 
@@ -74,12 +68,25 @@ class _MyHomePageState extends State<MyHomePage> {
       ),
       body: Center(
         child: Column(
-          mainAxisAlignment: .center,
+          // 1. This keeps everything in the middle of the screen
+          mainAxisAlignment: MainAxisAlignment.center, 
           children: [
             const Text('You have pushed the button this many times:'),
             Text(
               '$_counter',
               style: Theme.of(context).textTheme.headlineMedium,
+            ),
+
+            // 2. This is your "Go to Results" button
+            const SizedBox(height: 30), // Spacing
+            ElevatedButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => ResultScreen()),
+                );
+              },
+              child: const Text('Go to Results Page'),
             ),
           ],
         ),
