@@ -1,10 +1,13 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
-import 'package:flutter_slidable/flutter_slidable.dart'; // Ensure this is imported
+import 'package:flutter_slidable/flutter_slidable.dart'; 
+
+// Ensure these filenames match your project exactly
 import 'people_database.dart';
 import 'result_screen.dart'; 
 import 'background_search.dart'; 
+import 'one_url.dart'; 
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -20,8 +23,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String _searchQuery = "";
 
   final AutoVerificationService _searchService = AutoVerificationService();
-  
-  // The dynamic list that syncs with SQLite
+  final InstagramMetadataService _metadataService = InstagramMetadataService(); 
   List<Map<String, dynamic>> searchHistory = [];
 
   @override
@@ -29,29 +31,22 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _loadHistory();
     
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ReceiveSharingIntent.getInitialText().then((value) {
-        if (value != null && mounted) {
-          _handleAnalyze(value);
-        }
-      });
-    _loadHistory(); // Load SQLite data on startup
-    
-    // Handling the Intent (App opened via Share)
+    // 1. Handle URL if app was closed and opened via share
     ReceiveSharingIntent.getInitialText().then((value) {
-      if (value != null) _handleAnalyze(value);
+      if (value != null && mounted) _handleAnalyze(value);
     });
 
-    // Handling the Intent (App in background)
+    // 2. Handle the "Jump" from Instagram while app is already open
     _intentDataStreamSubscription = ReceiveSharingIntent.getTextStream().listen((value) {
-      _handleAnalyze(value);
+      if (mounted) {
+        // This strips the custom scheme and decodes the real Instagram link
+        String cleanValue = value.replaceFirst("instachecker://share?url=", "");
+        _handleAnalyze(Uri.decodeComponent(cleanValue));
+      }
     }, onError: (err) => debugPrint("Sharing Error: $err"));
 
-    // Real-time filtering logic for the search bar
     _filterController.addListener(() {
-      setState(() {
-        _searchQuery = _filterController.text.toLowerCase();
-      });
+      setState(() => _searchQuery = _filterController.text.toLowerCase());
     });
   }
 
@@ -62,116 +57,85 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
-  // Fetch all records from the database
   void _loadHistory() async {
-    final data = await DatabaseHelper.instance.fetchAllReels();
-    setState(() => searchHistory = data);
-  }
-
-  String? _extractReelId(String text) {
-    final RegExp regExp = RegExp(r"instagram\.com\/(?:reel|reels|p)\/([a-zA-Z0-9_-]+)");
-  String? _extractUsername(String text) {
-    final RegExp regExp = RegExp(r"instagram\.com\/([a-zA-Z0-9_.]+)");
-    final match = regExp.firstMatch(text);
-    return (match != null && match.groupCount >= 1) ? match.group(1) : null;
-  }
-
-  String? _extractUsername(String text) {
-    final RegExp regExp = RegExp(r"(?:@|instagram\.com\/)([a-zA-Z0-9_.]+)");
-    final match = regExp.firstMatch(text);
-    return match?.group(1);
+    try {
+      final data = await DatabaseHelper.instance.fetchAllReels();
+      setState(() => searchHistory = data);
+    } catch (e) {
+      debugPrint("History Load Error: $e");
+    }
   }
 
   void _handleAnalyze(String input) async {
-    debugPrint("🚀 DATA RECEIVED FROM INSTAGRAM: $input"); 
-
-    String? reelId = _extractReelId(input);
-    String? targetUser = reelId ?? _extractUsername(input);
-
-    if (targetUser == null || targetUser.isEmpty) return;
-
-    setState(() { _isAnalyzing = true; });
+    if (input.isEmpty) return;
+    
+    setState(() => _isAnalyzing = true);
 
     try {
-      await _searchService.startAutomatedScan("Verify the claims: $targetUser");
+      // 1. Fetch REAL Metadata from one_url.dart
+      final metadata = await _metadataService.getReelDetails(input);
+      
+      String targetUser = metadata?.username ?? "Unknown User";
+      String profilePic = metadata?.profilePicUrl ?? "https://unavatar.io/instagram/$targetUser";
+      String? transcript = metadata?.transcript;
+
+      // 2. Run the Fact-Check Scan
+      String searchQuery = (transcript != null && transcript.isNotEmpty) 
+          ? "Fact check: $transcript" 
+          : "Is instagram user $targetUser trustworthy?";
+          
+      await _searchService.startAutomatedScan(searchQuery);
       final report = await _searchService.getFinalReport(targetUser);
 
+      // 3. Prepare positions and scores
       final String status = report['position'] ?? "Neutral";
-      final String summary = report['summary'] ?? "No data found.";
-      
-      // Clean up the confidence string from "100%" to a double 1.0
-      final String confStr = report['confidence_percent'].toString().replaceAll('%', '');
+      final String summary = report['summary'] ?? "Analysis complete.";
+      final String confStr = report['confidence_percent']?.toString().replaceAll('%', '') ?? '0';
       final double finalScore = (double.tryParse(confStr) ?? 0.0) / 100.0;
 
       final List<String> finalSources = _searchService.verifiedResults.isNotEmpty 
           ? _searchService.verifiedResults.map((r) => r['url'] as String).toList()
           : ["No sources found."];
-    String? targetUser = _extractUsername(input);
-    if (targetUser == null || targetUser.isEmpty) return;
 
-    setState(() => _isAnalyzing = true);
-
-    // 1. Run Scraper Logic
-    await _searchService.startAutomatedScan("Is Instagram user @$targetUser reliable?");
-    final report = _searchService.getFinalReport(targetUser);
-
-    setState(() => _isAnalyzing = false);
-
-    // 2. Prepare Data
-    final double finalScore = report['position'] == "Supported" ? 0.92 : 0.25;
-    final List<String> finalSources = _searchService.verifiedResults.map((r) => r['url']!).toList();
-
+      // 4. Save to SQLite
       await DatabaseHelper.instance.addReelWithSources({
         'user': targetUser,
-        'profilePic': "https://unavatar.io/instagram/$targetUser",
+        'profilePic': profilePic,
         'score': finalScore,
         'date': "${DateTime.now().hour}:${DateTime.now().minute}",
         'status': status, 
         'reason': summary,
-        'transcript': "Analyzed ${finalSources.length} sources.",
+        'transcript': transcript ?? "No transcript available.",
       }, finalSources);
-    // 3. Save to SQLite
-    await DatabaseHelper.instance.addReelWithSources({
-      'user': targetUser,
-      'profilePic': "https://unavatar.io",
-      'score': finalScore,
-      'date': "${DateTime.now().hour}:${DateTime.now().minute}",
-      'status': report['position'], 
-      'reason': report['summary'],
-      'transcript': "Analyzed ${finalSources.length} sources.",
-    }, finalSources);
 
       _loadHistory(); 
-      setState(() { _isAnalyzing = false; });
-    // 4. Refresh History List
-    _loadHistory();
+      setState(() => _isAnalyzing = false);
 
       if (!mounted) return;
-      _navigateToResult(targetUser, finalScore, status, summary, finalSources);
+      _navigateToResult(targetUser, profilePic, finalScore, status, summary, transcript ?? "", finalSources);
 
     } catch (e) {
-      setState(() { _isAnalyzing = false; });
       debugPrint("Analysis Error: $e");
+      setState(() => _isAnalyzing = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error analyzing Reel: $e")),
+        );
+      }
     }
   }
 
-    if (!mounted) return;
-
-    // 5. Navigate to Result
-    _navigateToResult(targetUser, finalScore, report['position'], report['summary'], finalSources);
-  }
-
-  void _navigateToResult(String user, double score, String status, String reason, List<String> sources) {
+  void _navigateToResult(String user, String pic, double score, String status, String reason, String transcript, List<String> sources) {
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => ResultScreen(
           username: user,
-          profilePic: "https://unavatar.io/instagram/$user",
+          profilePic: pic,
           score: score,
           status: status, 
           reason: reason,
-          transcript: "Analysis Complete.",
+          transcript: transcript,
           sources: sources,
         ),
       ),
@@ -180,7 +144,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Filter the history list based on search bar input
     final filteredHistory = searchHistory.where((item) {
       return item['user'].toString().toLowerCase().contains(_searchQuery);
     }).toList();
@@ -188,10 +151,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A),
       appBar: AppBar(
-        title: const Text(
-          "InstaChecker",
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
+        title: const Text("InstaChecker", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
@@ -200,7 +160,6 @@ class _HomeScreenState extends State<HomeScreen> {
           Padding(
             padding: const EdgeInsets.all(20.0),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 TextField(
@@ -212,10 +171,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     prefixIcon: const Icon(Icons.search, color: Colors.blueAccent),
                     filled: true,
                     fillColor: const Color(0xFF1E293B),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(15),
-                      borderSide: BorderSide.none,
-                    ),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
                     suffixIcon: IconButton(
                       icon: const Icon(Icons.send, color: Colors.white54),
                       onPressed: () => _handleAnalyze(_filterController.text),
@@ -223,37 +179,22 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 const SizedBox(height: 30),
-                const Text(
-                  "HISTORY",
-                  style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold),
-                ),
+                const Text("HISTORY", style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 15),
                 Expanded(
-                  // AutoCloseBehavior ensures only one slider is open at a time
                   child: SlidableAutoCloseBehavior(
                     child: filteredHistory.isEmpty
-                        ? const Center(
-                            child: Text(
-                              "No matches found",
-                              style: TextStyle(color: Colors.white38),
-                            ),
-                          )
+                        ? const Center(child: Text("No matches found", style: TextStyle(color: Colors.white38)))
                         : ListView.builder(
                             itemCount: filteredHistory.length,
                             itemBuilder: (context, index) {
                               final item = filteredHistory[index];
-                              
                               return Padding(
                                 padding: const EdgeInsets.only(bottom: 8.0),
                                 child: Slidable(
                                   key: Key(item['id'].toString()),
-                                  // This groupTag helps AutoCloseBehavior track items
-                                  groupTag: 'history_group',
-                                  
-                                  // Right-side actions (Slide left to reveal)
                                   endActionPane: ActionPane(
                                     motion: const ScrollMotion(),
-                                    extentRatio: 0.25, // Reveal 25% of the width
                                     children: [
                                       SlidableAction(
                                         onPressed: (context) async {
@@ -264,44 +205,29 @@ class _HomeScreenState extends State<HomeScreen> {
                                         foregroundColor: Colors.white,
                                         icon: Icons.delete,
                                         label: 'Delete',
-                                        borderRadius: const BorderRadius.horizontal(
-                                          right: Radius.circular(15)
-                                        ),
+                                        borderRadius: const BorderRadius.horizontal(right: Radius.circular(15)),
                                       ),
                                     ],
                                   ),
-
                                   child: Card(
                                     color: const Color(0xFF1E293B),
                                     margin: EdgeInsets.zero,
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                                     child: ListTile(
                                       leading: CircleAvatar(
+                                        backgroundImage: NetworkImage(item['profilePic'] ?? ""),
                                         backgroundColor: Colors.blueGrey,
-                                        backgroundImage: NetworkImage(
-                                          "https://unavatar.io/instagram/${item['user']}",
-                                        ),
                                       ),
-                                      title: Text(
-                                        item['user'],
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      subtitle: Text(
-                                        "Credibility: ${(item['score'] * 100).toInt()}%",
-                                        style: const TextStyle(color: Colors.white70),
-                                      ),
-                                      trailing: const Icon(
-                                        Icons.chevron_right,
-                                        color: Colors.white24,
-                                      ),
+                                      title: Text(item['user'] ?? "Unknown", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                      subtitle: Text("Credibility: ${((item['score'] ?? 0) * 100).toInt()}%", style: const TextStyle(color: Colors.white70)),
+                                      trailing: const Icon(Icons.chevron_right, color: Colors.white24),
                                       onTap: () => _navigateToResult(
                                         item['user'],
+                                        item['profilePic'] ?? "",
                                         item['score'],
-                                        item['status'],
-                                        item['reason'],
+                                        item['status'] ?? "N/A",
+                                        item['reason'] ?? "N/A",
+                                        item['transcript'] ?? "",
                                         List<String>.from(item['sources'] ?? []),
                                       ),
                                     ),
@@ -315,7 +241,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
-          
           if (_isAnalyzing)
             Container(
               color: Colors.black.withOpacity(0.86),
@@ -323,19 +248,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    CircularProgressIndicator(
-                      color: Colors.blueAccent,
-                      strokeWidth: 5,
-                    ),
+                    CircularProgressIndicator(color: Colors.blueAccent, strokeWidth: 5),
                     SizedBox(height: 20),
-                    Text(
-                      "FACT-CHECKING SHARED REEL...",
-                      style: TextStyle(
-                        color: Colors.blueAccent,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.5,
-                      ),
-                    ),
+                    Text("FETCHING METADATA & FACT-CHECKING...", 
+                      style: TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
                   ],
                 ),
               ),

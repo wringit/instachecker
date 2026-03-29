@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:flutter/foundation.dart';
 
 class ReelMetadata {
   final String username;
@@ -14,7 +15,6 @@ class ReelMetadata {
 }
 
 class InstagramMetadataService {
-  // Get your free API key at https://scrapecreators.com
   static const String _apiKey = 'QRAul4aV3hTJTGkl0HzBAA3UkVC3';
   static const String _baseUrl = 'https://api.scrapecreators.com';
 
@@ -26,23 +26,23 @@ class InstagramMetadataService {
           'x-api-key': _apiKey,
           'Content-Type': 'application/json',
         },
-      );
+      ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         
-        // These keys vary slightly by provider; ScrapeCreators usually returns 
-        // an 'owner' or 'author' object
+        // This is the safety check that prevents the crash
         final author = data['author'] ?? data['owner'];
+        if (author == null) return null;
         
         return ReelMetadata(
-          username: author['username'],
-          profilePicUrl: author['profile_pic_url'] ?? author['profile_pic_url_hd'],
+          username: author['username'] ?? "Unknown",
+          profilePicUrl: author['profile_pic_url'] ?? author['profile_pic_url_hd'] ?? "",
           transcript: data['transcripts']?['text'],
         );
       }
     } catch (e) {
-      print('Metadata Fetch Error: $e');
+      debugPrint('Metadata Fetch Error: $e');
     }
     return null;
   }
