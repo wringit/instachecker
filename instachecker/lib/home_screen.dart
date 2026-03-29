@@ -1,5 +1,6 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter_slidable/flutter_slidable.dart'; 
+import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 import 'result_screen.dart'; 
 
 class HomeScreen extends StatefulWidget {
@@ -11,249 +12,176 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _searchController = TextEditingController();
-  List<Map<String, dynamic>> _filteredHistory = [];
+  late StreamSubscription _intentDataStreamSubscription;
+  bool _isAnalyzing = false;
 
-  // mock data
   List<Map<String, dynamic>> searchHistory = [
     {
-      "user": "alpha_traveler", 
-      "score": 0.85, 
+      "user": "alpha_traveler",
       "profilePic": "https://i.pravatar.cc/150?u=alpha",
+      "score": 0.85,
       "date": "2 mins ago",
       "status": "Safe",
       "reason": "Account shows consistent travel content with no flagged misinformation.",
-      "sources": [
-        "https://www.nationalgeographic.com",
-        "https://www.lonelyplanet.com",
-        "https://www.tripadvisor.com",
-        "https://www.bbc.com/travel",
-        "https://www.cntraveler.com",
-        "https://www.travelandleisure.com"
-      ]
-    },
-    {
-      "user": "bot_test_01", 
-      "score": 0.12, 
-      "profilePic": "https://i.pravatar.cc/150?u=bot",
-      "date": "1 hour ago",
-      "status": "High Risk",
-      "reason": "Bot-like behavior detected. High frequency of repetitive posts.",
-      "sources": [
-        "https://www.reuters.com",
-        "https://www.apnews.com",
-        "https://www.factcheck.org",
-        "https://www.snopes.com",
-        "https://www.nytimes.com",
-        "https://www.wikipedia.org"
-      ]
+      "transcript": "Check out these hidden gems in Italy! Make sure to book early.",
+      "sources": ["https://reuters.com", "https://apnews.com"]
     },
   ];
 
-  void _filterSearch(String query) {
-    setState(() {
-      _filteredHistory = searchHistory
-          .where((item) => item['user'].toLowerCase().contains(query.toLowerCase()))
-          .toList();
+@override
+  void initState() {
+    super.initState();
+
+    // Try the "Legacy Static" approach first
+    // If this shows red, hover over it to see what the IDE suggests
+    ReceiveSharingIntent.getInitialText().then((String? value) {
+      if (value != null) {
+        _handleAnalyze(value);
+      }
+    });
+
+    _intentDataStreamSubscription =
+        ReceiveSharingIntent.getTextStream().listen((String value) {
+      _handleAnalyze(value);
+    }, onError: (err) {
+      debugPrint("getLinkStream error: $err");
     });
   }
 
   @override
-  void initState() {
-    super.initState();
-    // sorted from most credible (1.0) to least (0.0)
-    searchHistory.sort((a, b) => b['score'].compareTo(a['score']));
-    _filteredHistory = searchHistory;
+  void dispose() {
+    _intentDataStreamSubscription.cancel();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  String? _extractUsername(String url) {
+    final RegExp regExp = RegExp(r"instagram\.com\/([a-zA-Z0-9_.]+)");
+    final match = regExp.firstMatch(url);
+    return (match != null && match.groupCount >= 1) ? match.group(1) : null;
+  }
+
+  void _handleAnalyze(String input) async {
+    String? targetUser = input.contains("instagram.com") 
+        ? _extractUsername(input) 
+        : input.replaceAll("@", "");
+
+    if (targetUser == null || targetUser.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Invalid Instagram link or username")),
+      );
+      return;
+    }
+
+    setState(() { _isAnalyzing = true; });
+
+    // simulating backend process
+    await Future.delayed(const Duration(seconds: 4));
+
+    setState(() { _isAnalyzing = false; });
+
+    if (!mounted) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ResultScreen(
+          username: targetUser,
+          profilePic: "https://unavatar.io/instagram/$targetUser",
+          score: 0.78,
+          status: "Likely Credible",
+          reason: "The AI cross-referenced the video transcript with verified news databases.",
+          transcript: "Extracted: 'The new environmental policy will begin in 2026...'",
+          sources: const [
+            "https://reuters.com",
+            "https://apnews.com",
+            "https://factcheck.org",
+            "https://snopes.com",
+            "https://nytimes.com",
+            "https://wikipedia.org"
+          ],
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0E21), // apply navy theme
+      backgroundColor: const Color(0xFF0F172A),
       appBar: AppBar(
-        title: const Text("Insta Checker", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+        title: const Text("InstaChecker", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
-      body: Column(
+      body: Stack(
         children: [
-          // search bar
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: TextField(
-              controller: _searchController,
-              onChanged: _filterSearch, // trigger the filter
-              style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
-                hintText: "Search...",
-                hintStyle: const TextStyle(color: Colors.white54),
-                prefixIcon: const Icon(Icons.search, color: Colors.blueAccent),
-                filled: true,
-                fillColor: const Color(0xFF1D1E33),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(15),
-                  borderSide: BorderSide.none,
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // search bar
+                TextField(
+                  controller: _searchController,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    hintText: "Paste link or type @username",
+                    hintStyle: const TextStyle(color: Colors.white54),
+                    filled: true,
+                    fillColor: const Color(0xFF1E293B),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
+                    suffixIcon: IconButton(
+                      icon: const Icon(Icons.auto_awesome, color: Colors.blueAccent),
+                      onPressed: () => _handleAnalyze(_searchController.text),
+                    ),
+                  ),
+                  onSubmitted: _handleAnalyze,
+                ),
+                const SizedBox(height: 30),
+                const Text("RECENT HISTORY", style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 15),
+                
+                // history list
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: searchHistory.length,
+                    itemBuilder: (context, index) {
+                      final item = searchHistory[index];
+                      return Card(
+                        color: const Color(0xFF1E293B),
+                        margin: const EdgeInsets.only(bottom: 12),
+                        child: ListTile(
+                          leading: CircleAvatar(backgroundImage: NetworkImage(item['profilePic'])),
+                          title: Text("@${item['user']}", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                          subtitle: Text("Score: ${(item['score'] * 100).toInt()}% • ${item['date']}", style: const TextStyle(color: Colors.white70)),
+                          trailing: const Icon(Icons.chevron_right, color: Colors.white24),
+                          onTap: () => _handleAnalyze(item['user']),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // scanning overlay
+          if (_isAnalyzing)
+            Container(
+              color: Colors.black.withValues(alpha: 0.86),
+              child: const Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircularProgressIndicator(color: Colors.blueAccent, strokeWidth: 5),
+                    SizedBox(height: 20),
+                    Text("ANALYZING TRANSCRIPT...", style: TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+                  ],
                 ),
               ),
             ),
-          ),
-
-          Expanded(
-            // makes sure only one slider can stay open at a given time
-            child: SlidableAutoCloseBehavior(
-              child: ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: _filteredHistory.length,
-                itemBuilder: (context, index) {
-                  final item = _filteredHistory[index];
-
-                  // actually delete function
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8.0),
-                    child: Slidable(
-                      key: Key(item['user']),
-                      endActionPane: ActionPane(
-                        motion: const ScrollMotion(),
-                        extentRatio: 0.25,
-                        children: [
-                          SlidableAction(
-                            onPressed: (context) {
-                              setState(() {
-                                String userToDelete = item['user'];
-                                searchHistory.removeWhere((element) => element['user'] == userToDelete);
-                                _filterSearch(_searchController.text);
-                              });
-                            },
-                            backgroundColor: Colors.redAccent.withValues(alpha: 0.8),
-                            foregroundColor: Colors.white,
-                            icon: Icons.delete,
-                            label: 'Delete',
-                            borderRadius: const BorderRadius.only(
-                              topRight: Radius.circular(15),
-                              bottomRight: Radius.circular(15),
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      // the actual card
-                      child: HistoryTile(
-                        username: item['user'],
-                        score: item['score'],
-                        date: item['date'],
-                        // pass all necessary variables to the next screen
-                        status: item['status'],
-                        reason: item['reason'],
-                        sources: List<String>.from(item['sources']),
-                        profilePic: item['profilePic'],
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
         ],
-      ),
-    );
-  }
-}
-
-class HistoryTile extends StatelessWidget {
-  final String username;
-  final double score;
-  final String profilePic;
-  final String date;
-  final String status;
-  final String reason;
-  final List<String> sources;
-
-  const HistoryTile({
-    super.key,
-    required this.username,
-    required this.score,
-    required this.profilePic,
-    required this.date,
-    required this.status,
-    required this.reason,
-    required this.sources,
-  });
-
-  // helper function to change color based on score
-  Color _getScoreColor() {
-    if (score > 0.8) return Colors.greenAccent;
-    if (score > 0.5) return Colors.orangeAccent;
-    return Colors.redAccent;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // makes the whole card clickable
-    return InkWell(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => ResultScreen(
-              // use of data belonging to specifically this screen
-              username: username, 
-              score: score,
-              profilePic: profilePic,
-              status: status,
-              reason: reason,
-              sources: sources,
-            ),
-          ),
-        );
-      },
-      borderRadius: BorderRadius.circular(15),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: const Color(0xFF1D1E33), // lighter navy
-          borderRadius: BorderRadius.circular(15),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-        ),
-        child: Row(
-          children: [
-
-            // circular progress indicator
-            SizedBox(
-              height: 50,
-              width: 50,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  CircularProgressIndicator(
-                    value: score,
-                    strokeWidth: 4,
-                    backgroundColor: Colors.white10,
-                    valueColor: AlwaysStoppedAnimation<Color>(_getScoreColor()),
-                  ),
-                  Center(
-                    child: Text(
-                      "${(score * 100).toInt()}",
-                      style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 20),
-
-            // user text info
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text("@$username", style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 4),
-                  Text(date, style: const TextStyle(color: Colors.white70)), 
-                ],
-              ),
-            ),
-            const Icon(Icons.arrow_forward_ios, color: Colors.white54, size: 16),
-          ],
-        ),
       ),
     );
   }
