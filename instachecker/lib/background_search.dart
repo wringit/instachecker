@@ -162,16 +162,29 @@ class AutoVerificationService extends ChangeNotifier {
   }
 
   /// Compiles the final report ordered by position.
-  Map<String, dynamic> getFinalReport(String originalQuery) {
+Map<String, dynamic> getFinalReport(String originalQuery) {
     List<Map<String, String>> supporters = verifiedResults.where((r) => r['verdict'] == 'Supports').toList();
     List<Map<String, String>> refuters = verifiedResults.where((r) => r['verdict'] == 'Refutes').toList();
 
+    int totalRelevant = supporters.length + refuters.length;
+    
+    // Determine Position
     bool isSupported = supporters.length > refuters.length;
-    String position = isSupported ? "Supported" : (refuters.length > supporters.length ? "Refuted" : "Neutral");
+    bool isRefuted = refuters.length > supporters.length;
+    String position = isSupported ? "Supported" : (isRefuted ? "Refuted" : "Neutral");
+
+    // Calculate Confidence Percent
+    // Formula: (Dominant Count / Total Relevant) * 100
+    double confidence = 0;
+    if (totalRelevant > 0) {
+      int dominantCount = isSupported ? supporters.length : (isRefuted ? refuters.length : 0);
+      confidence = (dominantCount / totalRelevant) * 100;
+    }
 
     return {
       "initial_query": originalQuery,
       "position": position,
+      "confidence_percent": "${confidence.toStringAsFixed(0)}%",
       "summary": "Found ${supporters.length} supporting and ${refuters.length} refuting sources.",
       "ordered_sources": isSupported ? [...supporters, ...refuters] : [...refuters, ...supporters],
     };

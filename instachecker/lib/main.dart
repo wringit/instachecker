@@ -9,6 +9,8 @@ import 'package:fuzzywuzzy/fuzzywuzzy.dart';
 import 'package:dart_sentiment/dart_sentiment.dart';
 import 'result_screen.dart'; 
 import 'home_screen.dart';
+import 'background_search.dart';
+import 'test_search.dart';
 
 void main() {
   runApp(const MyApp());
@@ -33,6 +35,7 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
       ),
       home: const HomeScreen(),
+      //  home: const FactCheckTestPage(), 
     );
   }
 }
