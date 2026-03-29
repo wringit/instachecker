@@ -12,10 +12,12 @@ import 'home_screen.dart';
 import 'background_search.dart';
 import 'test_search.dart';
 import 'home_screen.dart'; 
+import 'people_database.dart';
 
-void main() {
+void main() async{
   // Critical for background processes and plugins
   WidgetsFlutterBinding.ensureInitialized(); 
+  await DatabaseHelper.instance.database; 
   runApp(const MyApp());
 }
 
@@ -47,7 +49,7 @@ class MyApp extends StatelessWidget {
 
       // We go straight to your functional home screen.
       // No need for MyHomePage anymore!
-      home: const HomeScreen(), 
+   //   home: const HomeScreen(), 
     );
   }
 }
