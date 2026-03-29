@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_slidable/flutter_slidable.dart'; 
 import 'result_screen.dart'; 
 
 class HomeScreen extends StatefulWidget {
@@ -9,7 +10,10 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  // Mock Data
+  final TextEditingController _searchController = TextEditingController();
+  List<Map<String, dynamic>> _filteredHistory = [];
+
+  // mock data
   List<Map<String, dynamic>> searchHistory = [
     {"user": "alpha_traveler", "score": 0.85, "date": "2 mins ago"},
     {"user": "bot_test_01", "score": 0.12, "date": "1 hour ago"},
@@ -17,49 +21,105 @@ class _HomeScreenState extends State<HomeScreen> {
     {"user": "spam_account_404", "score": 0.35, "date": "Oct 27"},
   ];
 
+  void _filterSearch(String query) {
+    setState(() {
+      _filteredHistory = searchHistory
+          .where((item) => item['user'].toLowerCase().contains(query.toLowerCase()))
+          .toList();
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // sorted from most credible (1.0) to least (0.0)
+    searchHistory.sort((a, b) => b['score'].compareTo(a['score']));
+    _filteredHistory = searchHistory;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0E21), // Apply navy theme
+      backgroundColor: const Color(0xFF0A0E21), // apply navy theme
       appBar: AppBar(
-        title: const Text("Search History", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text("Insta Checker", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
-      body: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: searchHistory.length,
-        itemBuilder: (context, index) {
-          final item = searchHistory[index];
-
-          // Handle the Swipe-to-Delete
-          return Dismissible(
-            key: Key(item['user']),
-            direction: DismissDirection.endToStart,
-            onDismissed: (direction) {
-              setState(() {
-                searchHistory.removeAt(index);
-              });
-            },
-            background: Container(
-              alignment: Alignment.centerRight,
-              padding: const EdgeInsets.only(right: 20),
-              margin: const EdgeInsets.symmetric(vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.redAccent.withValues(),
-                borderRadius: BorderRadius.circular(15),
+      body: Column(
+        children: [
+          // search bar
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: TextField(
+              controller: _searchController,
+              onChanged: _filterSearch, // trigger the filter
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                hintText: "Search...",
+                hintStyle: const TextStyle(color: Colors.white54),
+                prefixIcon: const Icon(Icons.search, color: Colors.blueAccent),
+                filled: true,
+                fillColor: const Color(0xFF1D1E33),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(15),
+                  borderSide: BorderSide.none,
+                ),
               ),
-              child: const Icon(Icons.delete, color: Colors.white),
             ),
+          ),
 
-            // the actual card
-            child: HistoryTile(
-              username: item['user'],
-              score: item['score'],
-              date: item['date'],
+          Expanded(
+            // This ensures only one slider stays open at a time
+            child: SlidableAutoCloseBehavior(
+              child: ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: _filteredHistory.length,
+                itemBuilder: (context, index) {
+                  final item = _filteredHistory[index];
+
+                  // delete function
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8.0),
+                    child: Slidable(
+                      key: Key(item['user']),
+                      endActionPane: ActionPane(
+                        motion: const ScrollMotion(),
+                        extentRatio: 0.25,
+                        children: [
+                          SlidableAction(
+                            onPressed: (context) {
+                              setState(() {
+                                String userToDelete = item['user'];
+                                searchHistory.removeWhere((element) => element['user'] == userToDelete);
+                                _filterSearch(_searchController.text);
+                              });
+                            },
+                            backgroundColor: Colors.redAccent.withValues(alpha: 0.8),
+                            foregroundColor: Colors.white,
+                            icon: Icons.delete,
+                            label: 'Delete',
+                            borderRadius: const BorderRadius.only(
+                              topRight: Radius.circular(15),
+                              bottomRight: Radius.circular(15),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      // the actual card
+                      child: HistoryTile(
+                        username: item['user'],
+                        score: item['score'],
+                        date: item['date'],
+                      ),
+                    ),
+                  );
+                },
+              ),
             ),
-          );
-        },
+          ),
+        ],
       ),
     );
   }
@@ -96,12 +156,11 @@ class HistoryTile extends StatelessWidget {
       },
       borderRadius: BorderRadius.circular(15),
       child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 8),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: const Color(0xFF1D1E33), // lighter navy
           borderRadius: BorderRadius.circular(15),
-          border: Border.all(color: Colors.white.withValues()),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
         ),
         child: Row(
           children: [
@@ -122,7 +181,7 @@ class HistoryTile extends StatelessWidget {
                   Center(
                     child: Text(
                       "${(score * 100).toInt()}",
-                      style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                      style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ],
@@ -136,11 +195,12 @@ class HistoryTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text("@$username", style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                  Text(date, style: const TextStyle(color: Colors.white38)),
+                  const SizedBox(height: 4),
+                  Text(date, style: const TextStyle(color: Colors.white70)), 
                 ],
               ),
             ),
-            const Icon(Icons.arrow_forward_ios, color: Colors.white24, size: 16),
+            const Icon(Icons.arrow_forward_ios, color: Colors.white54, size: 16),
           ],
         ),
       ),
