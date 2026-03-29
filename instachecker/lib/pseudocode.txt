@@ -1,0 +1,12 @@
+Send link to Scrapecreators using HTTP GET request
+listen for response in JSON format, extract "text" 
+send to Myah's thing
+
+REMEMBER TO PUT THE KEY(S) IN SEPARATE FILE(S) AND ADD FILE(S) TO .gitignore
+
+ScrapeCreators: https://scrapecreators.com/tutorials/how-to-scrape-instagram-transcript-with-python/
+Demo shows python, but should be similar for Flutter. Use Flutter HTTP package: https://docs.flutter.dev/cookbook/networking/send-data
+
+
+
+if you need alternative method, look at this (idk what it is tho): https://github.com/viralvaghela/flutter_insta
