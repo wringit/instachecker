@@ -2,6 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:home_widget/home_widget.dart';
 import 'result_screen.dart'; // <--- Add this line!
+import 'dart:async';
+import 'dart:convert';
+import 'package:html/parser.dart' show parse;
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:fuzzywuzzy/fuzzywuzzy.dart';
+import 'package:dart_sentiment/dart_sentiment.dart';
 
 void main() {
   runApp(const MyApp());
@@ -64,7 +70,7 @@ class _MyHomePageState extends State<MyHomePage> {
       androidName: androidWidgetName
     );
   }
-
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
