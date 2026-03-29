@@ -15,10 +15,38 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // mock data
   List<Map<String, dynamic>> searchHistory = [
-    {"user": "alpha_traveler", "score": 0.85, "date": "2 mins ago"},
-    {"user": "bot_test_01", "score": 0.12, "date": "1 hour ago"},
-    {"user": "insta_queen", "score": 0.98, "date": "Yesterday"},
-    {"user": "spam_account_404", "score": 0.35, "date": "Oct 27"},
+    {
+      "user": "alpha_traveler", 
+      "score": 0.85, 
+      "profilePic": "https://i.pravatar.cc/150?u=alpha",
+      "date": "2 mins ago",
+      "status": "Safe",
+      "reason": "Account shows consistent travel content with no flagged misinformation.",
+      "sources": [
+        "https://www.nationalgeographic.com",
+        "https://www.lonelyplanet.com",
+        "https://www.tripadvisor.com",
+        "https://www.bbc.com/travel",
+        "https://www.cntraveler.com",
+        "https://www.travelandleisure.com"
+      ]
+    },
+    {
+      "user": "bot_test_01", 
+      "score": 0.12, 
+      "profilePic": "https://i.pravatar.cc/150?u=bot",
+      "date": "1 hour ago",
+      "status": "High Risk",
+      "reason": "Bot-like behavior detected. High frequency of repetitive posts.",
+      "sources": [
+        "https://www.reuters.com",
+        "https://www.apnews.com",
+        "https://www.factcheck.org",
+        "https://www.snopes.com",
+        "https://www.nytimes.com",
+        "https://www.wikipedia.org"
+      ]
+    },
   ];
 
   void _filterSearch(String query) {
@@ -70,7 +98,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
 
           Expanded(
-            // This ensures only one slider stays open at a time
+            // makes sure only one slider can stay open at a given time
             child: SlidableAutoCloseBehavior(
               child: ListView.builder(
                 padding: const EdgeInsets.all(16),
@@ -78,7 +106,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 itemBuilder: (context, index) {
                   final item = _filteredHistory[index];
 
-                  // delete function
+                  // actually delete function
                   return Padding(
                     padding: const EdgeInsets.symmetric(vertical: 8.0),
                     child: Slidable(
@@ -112,6 +140,11 @@ class _HomeScreenState extends State<HomeScreen> {
                         username: item['user'],
                         score: item['score'],
                         date: item['date'],
+                        // pass all necessary variables to the next screen
+                        status: item['status'],
+                        reason: item['reason'],
+                        sources: List<String>.from(item['sources']),
+                        profilePic: item['profilePic'],
                       ),
                     ),
                   );
@@ -128,13 +161,21 @@ class _HomeScreenState extends State<HomeScreen> {
 class HistoryTile extends StatelessWidget {
   final String username;
   final double score;
+  final String profilePic;
   final String date;
+  final String status;
+  final String reason;
+  final List<String> sources;
 
   const HistoryTile({
     super.key,
     required this.username,
     required this.score,
+    required this.profilePic,
     required this.date,
+    required this.status,
+    required this.reason,
+    required this.sources,
   });
 
   // helper function to change color based on score
@@ -151,7 +192,17 @@ class HistoryTile extends StatelessWidget {
       onTap: () {
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => ResultScreen()),
+          MaterialPageRoute(
+            builder: (context) => ResultScreen(
+              // use of data belonging to specifically this screen
+              username: username, 
+              score: score,
+              profilePic: profilePic,
+              status: status,
+              reason: reason,
+              sources: sources,
+            ),
+          ),
         );
       },
       borderRadius: BorderRadius.circular(15),

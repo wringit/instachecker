@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'package:home_widget/home_widget.dart';
 import 'result_screen.dart'; 
 import 'home_screen.dart';
@@ -14,11 +13,19 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      debugShowCheckedModeBanner: false, // smooth gui appearance
       title: 'InstaChecker',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        // matching your navy theme globally
+        brightness: Brightness.dark,
+        primaryColor: const Color(0xFF0A0E21),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.blueAccent,
+          brightness: Brightness.dark,
+        ),
+        useMaterial3: true,
       ),
-      home: HomeScreen(),
+      home: const HomeScreen(),
     );
   }
 }
@@ -32,10 +39,7 @@ class MyHomePage extends StatefulWidget {
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
-
 class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-
   // home widget stuff
   String appGroupId = "group.homeScreenApp";
   String iOSWidgetName = "MyHomeWidget";
@@ -48,55 +52,45 @@ class _MyHomePageState extends State<MyHomePage> {
     HomeWidget.setAppGroupId(appGroupId);
   }
 
-  void _incrementCounter() async {
-    setState(() {
-      _counter++;
-    });
-    String data = "Count = $_counter";
-    await HomeWidget.saveWidgetData(dataKey, data);
-    await HomeWidget.updateWidget(
-      iOSName: iOSWidgetName,
-      androidName: androidWidgetName,
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFF0A0E21),
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        backgroundColor: Colors.transparent,
         title: Text(widget.title),
       ),
       body: Center(
         child: Column(
-
           // keep centered
           mainAxisAlignment: MainAxisAlignment.center, 
           children: [
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-
+            const Icon(Icons.analytics_outlined, size: 100, color: Colors.blueAccent),
+            const SizedBox(height: 20),
+            const Text('Welcome to InstaChecker', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+            
             // "Go to Results" button
-            const SizedBox(height: 30), // Spacing
+            const SizedBox(height: 30), // spacing
             ElevatedButton(
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => ResultScreen()),
+                  MaterialPageRoute(
+                    builder: (context) => ResultScreen(
+                      username: "test_user",
+                      score: 0.5,
+                      profilePic: "https://i.pravatar.cc/150?u=test",
+                      status: "Pending",
+                      reason: "This is a manual test from the home page.",
+                      sources: ["https://google.com"],
+                    ),
+                  ),
                 );
               },
-              child: const Text('Go to Results Page'),
+              child: const Text('Test Results Page'),
             ),
           ],
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
       ),
     );
   }
