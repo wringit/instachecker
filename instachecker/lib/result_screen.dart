@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class ResultScreen extends StatelessWidget {
-  // Fix: score must be between 0.0 and 1.0 for the UI bar to work
+  // Fix: score must be between 0.0 and 1 for the UI bar to work
   final double score = 0.85; 
   final String status = "High Risk";
   final String reason = "This video claims that lemons cure everything. Scientific consensus suggests otherwise.";
@@ -14,7 +14,7 @@ class ResultScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // 1. Give it a deep, modern background
+      // modern-esque background
       backgroundColor: const Color(0xFF0F172A), 
       appBar: AppBar(
         title: const Text("Analysis Result", style: TextStyle(color: Colors.white)),
@@ -22,11 +22,11 @@ class ResultScreen extends StatelessWidget {
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
       ),
-      body: SingleChildScrollView( // Prevents "Going to hell" on small screens
+      body: SingleChildScrollView( 
         padding: const EdgeInsets.all(20.0),
         child: Column(
           children: [
-            // 2. The "Score Card" with a Gradient
+            // gradient for score
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
@@ -37,7 +37,7 @@ class ResultScreen extends StatelessWidget {
               ),
               child: Column(
                 children: [
-                  Text("Credibility Score", style: TextStyle(color: Colors.white.withOpacity(0.8))),
+                  Text("Credibility Score", style: TextStyle(color: Colors.white.withValues())),
                   Text("${(score * 100).toInt()}%", style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold, color: Colors.white)),
                   const SizedBox(height: 10),
                   ClipRRect(
@@ -45,7 +45,7 @@ class ResultScreen extends StatelessWidget {
                     child: LinearProgressIndicator(
                       value: score,
                       minHeight: 12,
-                      backgroundColor: Colors.white.withOpacity(0.3),
+                      backgroundColor: Colors.white.withValues(),
                       valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
                     ),
                   ),
@@ -54,7 +54,6 @@ class ResultScreen extends StatelessWidget {
             ),
             const SizedBox(height: 30),
 
-            // 3. The Reason Section (Using a Card)
             Card(
               color: const Color(0xFF1E293B),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
@@ -72,7 +71,7 @@ class ResultScreen extends StatelessWidget {
             ),
             const SizedBox(height: 30),
 
-            // 4. Stylized Sources
+            // personalization
             const Align(
               alignment: Alignment.centerLeft,
               child: Text("VERIFIED SOURCES", style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),

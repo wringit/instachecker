@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:home_widget/home_widget.dart';
-import 'result_screen.dart'; // <--- Add this line!
+import 'result_screen.dart'; 
+import 'home_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -17,7 +18,7 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
-      home: ResultScreen(),
+      home: HomeScreen(),
     );
   }
 }
@@ -68,7 +69,8 @@ class _MyHomePageState extends State<MyHomePage> {
       ),
       body: Center(
         child: Column(
-          // 1. This keeps everything in the middle of the screen
+
+          // keep centered
           mainAxisAlignment: MainAxisAlignment.center, 
           children: [
             const Text('You have pushed the button this many times:'),
@@ -77,7 +79,7 @@ class _MyHomePageState extends State<MyHomePage> {
               style: Theme.of(context).textTheme.headlineMedium,
             ),
 
-            // 2. This is your "Go to Results" button
+            // "Go to Results" button
             const SizedBox(height: 30), // Spacing
             ElevatedButton(
               onPressed: () {
