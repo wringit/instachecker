@@ -20,6 +20,8 @@ class _HomeScreenState extends State<HomeScreen> {
   String _searchQuery = "";
 
   final AutoVerificationService _searchService = AutoVerificationService();
+  
+  // The dynamic list that syncs with SQLite
   List<Map<String, dynamic>> searchHistory = [];
 
   @override
@@ -33,12 +35,19 @@ class _HomeScreenState extends State<HomeScreen> {
           _handleAnalyze(value);
         }
       });
+    _loadHistory(); // Load SQLite data on startup
+    
+    // Handling the Intent (App opened via Share)
+    ReceiveSharingIntent.getInitialText().then((value) {
+      if (value != null) _handleAnalyze(value);
     });
 
+    // Handling the Intent (App in background)
     _intentDataStreamSubscription = ReceiveSharingIntent.getTextStream().listen((value) {
       _handleAnalyze(value);
     }, onError: (err) => debugPrint("Sharing Error: $err"));
 
+    // Real-time filtering logic for the search bar
     _filterController.addListener(() {
       setState(() {
         _searchQuery = _filterController.text.toLowerCase();
@@ -53,6 +62,7 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
+  // Fetch all records from the database
   void _loadHistory() async {
     final data = await DatabaseHelper.instance.fetchAllReels();
     setState(() => searchHistory = data);
@@ -60,6 +70,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   String? _extractReelId(String text) {
     final RegExp regExp = RegExp(r"instagram\.com\/(?:reel|reels|p)\/([a-zA-Z0-9_-]+)");
+  String? _extractUsername(String text) {
+    final RegExp regExp = RegExp(r"instagram\.com\/([a-zA-Z0-9_.]+)");
     final match = regExp.firstMatch(text);
     return (match != null && match.groupCount >= 1) ? match.group(1) : null;
   }
@@ -94,6 +106,20 @@ class _HomeScreenState extends State<HomeScreen> {
       final List<String> finalSources = _searchService.verifiedResults.isNotEmpty 
           ? _searchService.verifiedResults.map((r) => r['url'] as String).toList()
           : ["No sources found."];
+    String? targetUser = _extractUsername(input);
+    if (targetUser == null || targetUser.isEmpty) return;
+
+    setState(() => _isAnalyzing = true);
+
+    // 1. Run Scraper Logic
+    await _searchService.startAutomatedScan("Is Instagram user @$targetUser reliable?");
+    final report = _searchService.getFinalReport(targetUser);
+
+    setState(() => _isAnalyzing = false);
+
+    // 2. Prepare Data
+    final double finalScore = report['position'] == "Supported" ? 0.92 : 0.25;
+    final List<String> finalSources = _searchService.verifiedResults.map((r) => r['url']!).toList();
 
       await DatabaseHelper.instance.addReelWithSources({
         'user': targetUser,
@@ -104,9 +130,21 @@ class _HomeScreenState extends State<HomeScreen> {
         'reason': summary,
         'transcript': "Analyzed ${finalSources.length} sources.",
       }, finalSources);
+    // 3. Save to SQLite
+    await DatabaseHelper.instance.addReelWithSources({
+      'user': targetUser,
+      'profilePic': "https://unavatar.io",
+      'score': finalScore,
+      'date': "${DateTime.now().hour}:${DateTime.now().minute}",
+      'status': report['position'], 
+      'reason': report['summary'],
+      'transcript': "Analyzed ${finalSources.length} sources.",
+    }, finalSources);
 
       _loadHistory(); 
       setState(() { _isAnalyzing = false; });
+    // 4. Refresh History List
+    _loadHistory();
 
       if (!mounted) return;
       _navigateToResult(targetUser, finalScore, status, summary, finalSources);
@@ -115,6 +153,12 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() { _isAnalyzing = false; });
       debugPrint("Analysis Error: $e");
     }
+  }
+
+    if (!mounted) return;
+
+    // 5. Navigate to Result
+    _navigateToResult(targetUser, finalScore, report['position'], report['summary'], finalSources);
   }
 
   void _navigateToResult(String user, double score, String status, String reason, List<String> sources) {
@@ -127,7 +171,7 @@ class _HomeScreenState extends State<HomeScreen> {
           score: score,
           status: status, 
           reason: reason,
-          transcript: "Loaded from analysis.",
+          transcript: "Analysis Complete.",
           sources: sources,
         ),
       ),
@@ -136,6 +180,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Filter the history list based on search bar input
     final filteredHistory = searchHistory.where((item) {
       return item['user'].toString().toLowerCase().contains(_searchQuery);
     }).toList();
@@ -155,6 +200,7 @@ class _HomeScreenState extends State<HomeScreen> {
           Padding(
             padding: const EdgeInsets.all(20.0),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 TextField(
