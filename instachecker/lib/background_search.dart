@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+// import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:html/parser.dart' show parse;
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
@@ -94,10 +94,11 @@ class AutoVerificationService extends ChangeNotifier {
   void _runHeadlessScraper(String url, String claim) {
     HeadlessInAppWebView? headless;
     final watchdog = Timer(const Duration(seconds: 20), () {
-      if (headless != null && (headless.isRunning() ?? false)) {
-        headless.dispose();
-        _checkIfFinished();
-      }
+    // If headless is null, the whole thing returns null, then defaults to false.
+    if (headless?.isRunning() == true) {
+      headless?.dispose();
+      _checkIfFinished();
+    }
     });
 
     headless = HeadlessInAppWebView(

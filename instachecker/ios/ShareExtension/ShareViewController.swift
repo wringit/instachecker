@@ -1,50 +1,63 @@
 import UIKit
 import Social
 import MobileCoreServices
-import UniformTypeIdentifiers
 
 class ShareViewController: SLComposeServiceViewController {
 
     override func isContentValid() -> Bool {
-        // Return true so the "Post" button is clickable
+        // This keeps the "Post" button enabled
         return true
     }
 
     override func didSelectPost() {
-        // This runs when the user taps "Post" or the App Icon
-        if let item = extensionContext?.inputItems.first as? NSExtensionItem,
-           let attachment = item.attachments?.first {
-            
-            // Look for a URL (The Instagram Reel link)
-            if attachment.hasItemConformingToTypeIdentifier(UTType.url.identifier) {
-                attachment.loadItem(forTypeIdentifier: UTType.url.identifier, options: nil) { [weak self] (url, error) in
-                    if let shareURL = url as? URL {
-                        self?.openMainApp(with: shareURL)
+        // This is called when the user hits 'Post'
+        if let item = extensionContext?.inputItems.first as? NSExtensionItem {
+            if let attachments = item.attachments {
+                for attachment in attachments {
+                    // Check for URL
+                    if attachment.hasItemConformingToTypeIdentifier(kUTTypeURL as String) {
+                        attachment.loadItem(forTypeIdentifier: kUTTypeURL as String, options: nil) { (url, error) in
+                            if let shareURL = url as? URL {
+                                self.openMainApp(url: shareURL)
+                            }
+                        }
+                        break
+                    }
+                    // Check for Plain Text (Sometimes Instagram sends the link as text)
+                    if attachment.hasItemConformingToTypeIdentifier(kUTTypePlainText as String) {
+                        attachment.loadItem(forTypeIdentifier: kUTTypePlainText as String, options: nil) { (text, error) in
+                            if let shareText = text as? String, let shareURL = URL(string: shareText) {
+                                self.openMainApp(url: shareURL)
+                            }
+                        }
+                        break
                     }
                 }
             }
         }
-    }
-
-    private func openMainApp(with url: URL) {
-        // This builds the custom "teleport" command
-        let scheme = "instachecker://teleport?url=\(url.absoluteString)"
-        
-        if let openURL = URL(string: scheme) {
-            var responder: UIResponder? = self
-            while responder != nil {
-                if let application = responder as? UIApplication {
-                    application.open(openURL, options: [:], completionHandler: nil)
-                    break
-                }
-                responder = responder?.next
-            }
-            // Closes the share sheet and returns to the original app (Instagram)
-            self.extensionContext?.completeRequest(returningItems: [], completionHandler: nil)
-        }
+        // Closes the share popup
+        self.extensionContext?.completeRequest(returningItems: [], completionHandler: nil)
     }
 
     override func configurationItems() -> [Any]! {
+        // To keep it simple like an email app, we return an empty array
         return []
+    }
+
+    private func openMainApp(url: URL) {
+        // This encodes the URL so it doesn't break the deep link
+        let suffix = url.absoluteString.addingPercentEncoding(withAllowedCharacters: .urlHostAllowed) ?? ""
+        
+        // IMPORTANT: "instachecker" must match the URL Scheme you set in Xcode
+        let fullURL = URL(string: "instachecker://share?url=\(suffix)")!
+        
+        var responder: UIResponder? = self
+        while responder != nil {
+            if let application = responder as? UIApplication {
+                application.open(fullURL, options: [:], completionHandler: nil)
+                return
+            }
+            responder = responder?.next
+        }
     }
 }

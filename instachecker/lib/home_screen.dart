@@ -85,7 +85,7 @@ class _HomeScreenState extends State<HomeScreen> {
           : "Is instagram user $targetUser trustworthy?";
           
       await _searchService.startAutomatedScan(searchQuery);
-      final report = await _searchService.getFinalReport(targetUser);
+      final report = _searchService.getFinalReport(targetUser);
 
       // 3. Prepare positions and scores
       final String status = report['position'] ?? "Neutral";
@@ -201,7 +201,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                           await DatabaseHelper.instance.deleteReel(item['id']);
                                           _loadHistory();
                                         },
-                                        backgroundColor: Colors.redAccent.withOpacity(0.8),
+                                        backgroundColor: Colors.redAccent.withValues(),
                                         foregroundColor: Colors.white,
                                         icon: Icons.delete,
                                         label: 'Delete',
@@ -243,7 +243,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           if (_isAnalyzing)
             Container(
-              color: Colors.black.withOpacity(0.86),
+              color: Colors.black.withValues(),
               child: const Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
